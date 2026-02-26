@@ -78,12 +78,48 @@ socket.on("init", (data) => {
 socket.on("update", (data) => {
     players = data.players;
     bullets = data.bullets;
-    draw();
 });
 
 
-function draw(){
+
+
+function gameLoop(){
+
+
     ctx.clearRect(0,0,canvas.width,canvas.height);
+
+
+    let me = players[playerId];
+    if(me){
+        cameraX = canvas.width/2 - me.x;
+        cameraY = canvas.height/2 - me.y;
+    }
+
+
+    for(let id in players){
+        let p = players[id];
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x + cameraX, p.y + cameraY, 15, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+
+    bullets.forEach(b => {
+        ctx.fillStyle="yellow";
+        ctx.beginPath();
+        ctx.arc(b.x + cameraX, b.y + cameraY, 5, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+requestAnimationFrame(gameLoop);
+
+
 
 
     let me = players[playerId];
