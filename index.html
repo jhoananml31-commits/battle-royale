@@ -112,19 +112,43 @@ function draw(){
 }
 
 
+let keys = {};
+
+
 document.addEventListener("keydown", e=>{
+    keys[e.key] = true;
+});
+
+
+document.addEventListener("keyup", e=>{
+    keys[e.key] = false;
+});
+
+
+setInterval(() => {
+
+
     let me = players[playerId];
     if(!me) return;
 
 
-    if(e.key==="w") me.y-=5;
-    if(e.key==="s") me.y+=5;
-    if(e.key==="a") me.x-=5;
-    if(e.key==="d") me.x+=5;
+    let moved = false;
 
 
-    socket.emit("move",{x:me.x,y:me.y});
-});
+    if(keys["w"]) { me.y -= 5; moved = true; }
+    if(keys["s"]) { me.y += 5; moved = true; }
+    if(keys["a"]) { me.x -= 5; moved = true; }
+    if(keys["d"]) { me.x += 5; moved = true; }
+
+
+    if(moved){
+        socket.emit("move", { x: me.x, y: me.y });
+    }
+
+
+}, 1000/60);
+
+
 
 
 canvas.addEventListener("click", e=>{
