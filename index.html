@@ -2,55 +2,24 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Battle Royale PRO</title>
+<title>Battle Royale</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-body { margin:0; background:#111; color:white; font-family:Arial; overflow:hidden; }
-#menu {
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    text-align:center;
-}
-input,button {
-    padding:10px;
-    margin:5px;
-}
-#hud {
-    position:absolute;
-    top:10px;
-    left:10px;
-}
-#shop {
-    position:absolute;
-    right:10px;
-    top:10px;
-}
+body { margin:0; background:#111; color:white; font-family:Arial; text-align:center; }
+button { padding:10px; margin:5px; }
 canvas { background:#222; display:none; }
+#rooms { margin-top:20px; }
 </style>
 </head>
 <body>
 
 
+<h1>🔥 Battle Royale</h1>
+
+
 <div id="menu">
-    <h1>🔥 Battle Royale PRO</h1>
-    <input id="name" placeholder="Tu nombre"><br>
-    <input id="room" placeholder="Sala (ej: 123)"><br>
-    <input id="color" placeholder="Color (red, blue, cyan...)"><br>
-    <button onclick="start()">JUGAR</button>
-</div>
-
-
-<div id="hud">
-    <div>Kills: <span id="kills">0</span></div>
-    <div>Monedas: <span id="coins">0</span></div>
-    <div>Victorias: <span id="wins">0</span></div>
-</div>
-
-
-<div id="shop">
-    <button onclick="buy()">Comprar Mejora (50 monedas)</button>
+    <button onclick="createRoom()">Crear Sala</button>
+    <div id="rooms"></div>
 </div>
 
 
@@ -63,81 +32,53 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 
-let playerId;
-let players = {};
-let bullets = {};
-let wins = {};
-
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 
-function start(){
+let playerId;
+let players = {};
+let bullets = {};
+
+
+socket.emit("getRooms");
+
+
+socket.on("roomsList", (rooms) => {
+    let div = document.getElementById("rooms");
+    div.innerHTML = "<h3>Salas Disponibles:</h3>";
+
+
+    rooms.forEach(room => {
+        div.innerHTML += `<button onclick="joinRoom('${room}')">${room}</button><br>`;
+    });
+});
+
+
+function createRoom(){
+    let name = prompt("Nombre de la sala:");
+    if(name){
+        socket.emit("createRoom", name);
+    }
+}
+
+
+function joinRoom(name){
+    socket.emit("joinRoom", name);
+}
+
+
+socket.on("init", (data) => {
+    playerId = data.id;
     document.getElementById("menu").style.display="none";
     canvas.style.display="block";
-
-
-    socket.emit("joinRoom",{
-        name:document.getElementById("name").value,
-        room:document.getElementById("room").value,
-        color:document.getElementById("color").value,
-        savedCoins: localStorage.getItem("coins") || 0
-    });
-}
-
-
-function buy(){
-    socket.emit("buyUpgrade");
-}
-
-
-socket.on("init", data=>{
-    playerId=data.id;
-    players=data.players;
-    wins=data.wins;
 });
 
 
-socket.on("update", data=>{
-    players=data.players;
-    bullets=data.bullets;
-    wins=data.wins;
+socket.on("update", (data) => {
+    players = data.players;
+    bullets = data.bullets;
     draw();
-});
-
-
-document.addEventListener("keydown", e=>{
-    if(!players[playerId]) return;
-
-
-    let p=players[playerId];
-    if(e.key==="w") p.y-=5;
-    if(e.key==="s") p.y+=5;
-    if(e.key==="a") p.x-=5;
-    if(e.key==="d") p.x+=5;
-
-
-    socket.emit("move",{x:p.x,y:p.y});
-});
-
-
-canvas.addEventListener("click", e=>{
-    if(!players[playerId]) return;
-
-
-    let p=players[playerId];
-    let dx=e.clientX-canvas.width/2;
-    let dy=e.clientY-canvas.height/2;
-    let dist=Math.sqrt(dx*dx+dy*dy);
-
-
-    socket.emit("shoot",{
-        x:p.x,
-        y:p.y,
-        dx:(dx/dist)*15,
-        dy:(dy/dist)*15
-    });
 });
 
 
@@ -145,40 +86,64 @@ function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
 
-    let me=players[playerId];
+    let me = players[playerId];
     if(!me) return;
 
 
-    document.getElementById("kills").innerText=me.kills;
-    document.getElementById("coins").innerText=me.coins;
-    document.getElementById("wins").innerText=wins[playerId]||0;
-
-
-    localStorage.setItem("coins",me.coins);
-
-
-    let offsetX=canvas.width/2-me.x;
-    let offsetY=canvas.height/2-me.y;
+    let offsetX = canvas.width/2 - me.x;
+    let offsetY = canvas.height/2 - me.y;
 
 
     for(let id in players){
-        let p=players[id];
-        ctx.fillStyle=p.color;
+        let p = players[id];
+        ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x+offsetX,p.y+offsetY,15,0,Math.PI*2);
+        ctx.arc(p.x + offsetX, p.y + offsetY, 15, 0, Math.PI*2);
         ctx.fill();
     }
 
 
-    if(data && data.bullets){
-        data.bullets.forEach(b=>{
-            ctx.fillStyle="yellow";
-            ctx.beginPath();
-            ctx.arc(b.x+offsetX,b.y+offsetY,5,0,Math.PI*2);
-            ctx.fill();
-        });
-    }
+    bullets.forEach(b => {
+        ctx.fillStyle="yellow";
+        ctx.beginPath();
+        ctx.arc(b.x + offsetX, b.y + offsetY, 5, 0, Math.PI*2);
+        ctx.fill();
+    });
 }
+
+
+document.addEventListener("keydown", e=>{
+    let me = players[playerId];
+    if(!me) return;
+
+
+    if(e.key==="w") me.y-=5;
+    if(e.key==="s") me.y+=5;
+    if(e.key==="a") me.x-=5;
+    if(e.key==="d") me.x+=5;
+
+
+    socket.emit("move",{x:me.x,y:me.y});
+});
+
+
+canvas.addEventListener("click", e=>{
+    let me = players[playerId];
+    if(!me) return;
+
+
+    let dx = e.clientX - canvas.width/2;
+    let dy = e.clientY - canvas.height/2;
+    let dist = Math.sqrt(dx*dx+dy*dy);
+
+
+    socket.emit("shoot",{
+        x:me.x,
+        y:me.y,
+        dx:(dx/dist)*15,
+        dy:(dy/dist)*15
+    });
+});
 </script>
 
 
