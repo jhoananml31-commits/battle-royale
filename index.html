@@ -1,223 +1,184 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Battle Royale PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-body{margin:0;background:black;color:white;font-family:Arial;overflow:hidden;}
-#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
-input,button{padding:10px;margin:10px;font-size:16px;}
-canvas{display:none;background:#111;}
-#ui{position:absolute;top:10px;left:10px;}
-#ranking{position:absolute;top:10px;right:10px;text-align:right;}
+body { margin:0; background:#111; color:white; font-family:Arial; overflow:hidden; }
+#menu {
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;
+}
+input,button {
+    padding:10px;
+    margin:5px;
+}
+#hud {
+    position:absolute;
+    top:10px;
+    left:10px;
+}
+#shop {
+    position:absolute;
+    right:10px;
+    top:10px;
+}
+canvas { background:#222; display:none; }
 </style>
 </head>
 <body>
 
 
 <div id="menu">
-<h1>🔥 BATTLE ROYALE PRO 🔥</h1>
-<input type="text" id="nameInput" placeholder="Tu nombre"><br>
-<input type="color" id="colorPicker"><br>
-<button onclick="startGame()">JUGAR</button>
+    <h1>🔥 Battle Royale PRO</h1>
+    <input id="name" placeholder="Tu nombre"><br>
+    <input id="room" placeholder="Sala (ej: 123)"><br>
+    <input id="color" placeholder="Color (red, blue, cyan...)"><br>
+    <button onclick="start()">JUGAR</button>
 </div>
 
 
-<div id="ui"></div>
-<div id="ranking"></div>
+<div id="hud">
+    <div>Kills: <span id="kills">0</span></div>
+    <div>Monedas: <span id="coins">0</span></div>
+    <div>Victorias: <span id="wins">0</span></div>
+</div>
+
+
+<div id="shop">
+    <button onclick="buy()">Comprar Mejora (50 monedas)</button>
+</div>
 
 
 <canvas id="game"></canvas>
 
 
-<audio autoplay loop>
-<source src="https://cdn.pixabay.com/audio/2022/03/15/audio_c8c8a73467.mp3">
-</audio>
-
-
 <script>
-const socket=io();
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+const socket = io();
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
 
-let MAP_SIZE;
-let players={},bullets=[],zoneRadius;
-let myId;
-let keys={};
-let started=false;
+let playerId;
+let players = {};
+let bullets = {};
+let wins = {};
 
 
-let savedCoins = localStorage.getItem("coins") || 0;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 
-function startGame(){
-
-
-    const name=document.getElementById("nameInput").value || "Player";
-    const color=document.getElementById("colorPicker").value;
-
-
-    socket.emit("join",{name,color});
-
-
+function start(){
     document.getElementById("menu").style.display="none";
     canvas.style.display="block";
-    started=true;
-}
 
 
-socket.on("init",data=>{
-    myId=data.id;
-    players=data.players;
-    MAP_SIZE=data.MAP_SIZE;
-});
-
-
-socket.on("update",data=>{
-    players=data.players;
-    bullets=data.bullets;
-    zoneRadius=data.zoneRadius;
-
-
-    if(players[myId]){
-        localStorage.setItem("coins",players[myId].coins);
-    }
-});
-
-
-canvas.addEventListener("click", shoot);
-
-
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
-
-
-function shoot(e){
-    if(!players[myId]) return;
-
-
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-
-
-    const camX = players[myId].x - canvas.width/2;
-    const camY = players[myId].y - canvas.height/2;
-
-
-    const worldX = mouseX + camX;
-    const worldY = mouseY + camY;
-
-
-    const dx = worldX - players[myId].x;
-    const dy = worldY - players[myId].y;
-
-
-    const length = Math.sqrt(dx*dx+dy*dy);
-    const speed = 15;
-
-
-    socket.emit("shoot",{
-        x:players[myId].x,
-        y:players[myId].y,
-        dx:(dx/length)*speed,
-        dy:(dy/length)*speed
+    socket.emit("joinRoom",{
+        name:document.getElementById("name").value,
+        room:document.getElementById("room").value,
+        color:document.getElementById("color").value,
+        savedCoins: localStorage.getItem("coins") || 0
     });
 }
 
 
-function move(){
-    if(!started || !players[myId]) return;
-
-
-    let p=players[myId];
-
-
-    if(keys["w"]) p.y-=6;
-    if(keys["s"]) p.y+=6;
-    if(keys["a"]) p.x-=6;
-    if(keys["d"]) p.x+=6;
-
-
-    socket.emit("move",{x:p.x,y:p.y});
+function buy(){
+    socket.emit("buyUpgrade");
 }
 
 
+socket.on("init", data=>{
+    playerId=data.id;
+    players=data.players;
+    wins=data.wins;
+});
+
+
+socket.on("update", data=>{
+    players=data.players;
+    bullets=data.bullets;
+    wins=data.wins;
+    draw();
+});
+
+
+document.addEventListener("keydown", e=>{
+    if(!players[playerId]) return;
+
+
+    let p=players[playerId];
+    if(e.key==="w") p.y-=5;
+    if(e.key==="s") p.y+=5;
+    if(e.key==="a") p.x-=5;
+    if(e.key==="d") p.x+=5;
+
+
+    socket.emit("move",{x:p.x,y:p.y});
+});
+
+
+canvas.addEventListener("click", e=>{
+    if(!players[playerId]) return;
+
+
+    let p=players[playerId];
+    let dx=e.clientX-canvas.width/2;
+    let dy=e.clientY-canvas.height/2;
+    let dist=Math.sqrt(dx*dx+dy*dy);
+
+
+    socket.emit("shoot",{
+        x:p.x,
+        y:p.y,
+        dx:(dx/dist)*15,
+        dy:(dy/dist)*15
+    });
+});
+
+
 function draw(){
-    if(!started || !players[myId]) return;
-
-
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
 
-    let camX=players[myId].x-canvas.width/2;
-    let camY=players[myId].y-canvas.height/2;
+    let me=players[playerId];
+    if(!me) return;
 
 
-    ctx.save();
-    ctx.translate(-camX,-camY);
+    document.getElementById("kills").innerText=me.kills;
+    document.getElementById("coins").innerText=me.coins;
+    document.getElementById("wins").innerText=wins[playerId]||0;
 
 
-    ctx.strokeStyle="blue";
-    ctx.beginPath();
-    ctx.arc(MAP_SIZE/2,MAP_SIZE/2,zoneRadius,0,Math.PI*2);
-    ctx.stroke();
+    localStorage.setItem("coins",me.coins);
+
+
+    let offsetX=canvas.width/2-me.x;
+    let offsetY=canvas.height/2-me.y;
 
 
     for(let id in players){
         let p=players[id];
         ctx.fillStyle=p.color;
         ctx.beginPath();
-        ctx.arc(p.x,p.y,15,0,Math.PI*2);
+        ctx.arc(p.x+offsetX,p.y+offsetY,15,0,Math.PI*2);
         ctx.fill();
-
-
-        ctx.fillStyle="white";
-        ctx.fillText(p.name,p.x-15,p.y-20);
     }
 
 
-    ctx.fillStyle="yellow";
-    bullets.forEach(b=>{
-        ctx.beginPath();
-        ctx.arc(b.x,b.y,5,0,Math.PI*2);
-        ctx.fill();
-    });
-
-
-    ctx.restore();
-
-
-    let me=players[myId];
-
-
-    document.getElementById("ui").innerHTML=
-        "❤️ "+Math.floor(me.hp)+
-        " | 🔫 "+me.kills+
-        " | 💰 "+me.coins+
-        " | ⭐ "+me.level;
-
-
-    // ranking
-    let sorted = Object.values(players).sort((a,b)=>b.kills-a.kills);
-    let rankHTML="<b>🏆 Ranking</b><br>";
-    sorted.slice(0,5).forEach(p=>{
-        rankHTML+=p.name+" - "+p.kills+"<br>";
-    });
-    document.getElementById("ranking").innerHTML=rankHTML;
+    if(data && data.bullets){
+        data.bullets.forEach(b=>{
+            ctx.fillStyle="yellow";
+            ctx.beginPath();
+            ctx.arc(b.x+offsetX,b.y+offsetY,5,0,Math.PI*2);
+            ctx.fill();
+        });
+    }
 }
-
-
-function loop(){
-    move();
-    draw();
-    requestAnimationFrame(loop);
-}
-
-
-loop();
 </script>
 
 
