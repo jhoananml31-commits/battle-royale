@@ -38,7 +38,7 @@ canvas.height = window.innerHeight;
 
 let playerId;
 let players = {};
-let bullets = {};
+let bullets = [];
 
 
 socket.emit("getRooms");
@@ -50,7 +50,11 @@ socket.on("roomsList", (rooms) => {
 
 
     rooms.forEach(room => {
-        div.innerHTML += `<button onclick="joinRoom('${room}')">${room}</button><br>`;
+        let btn = document.createElement("button");
+        btn.innerText = room;
+        btn.onclick = () => joinRoom(room);
+        div.appendChild(btn);
+        div.appendChild(document.createElement("br"));
     });
 });
 
@@ -81,73 +85,6 @@ socket.on("update", (data) => {
 });
 
 
-
-
-function gameLoop(){
-
-
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-
-    let me = players[playerId];
-    if(me){
-        cameraX = canvas.width/2 - me.x;
-        cameraY = canvas.height/2 - me.y;
-    }
-
-
-    for(let id in players){
-        let p = players[id];
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x + cameraX, p.y + cameraY, 15, 0, Math.PI*2);
-        ctx.fill();
-    }
-
-
-    bullets.forEach(b => {
-        ctx.fillStyle="yellow";
-        ctx.beginPath();
-        ctx.arc(b.x + cameraX, b.y + cameraY, 5, 0, Math.PI*2);
-        ctx.fill();
-    });
-
-
-    requestAnimationFrame(gameLoop);
-}
-
-
-requestAnimationFrame(gameLoop);
-
-
-
-
-    let me = players[playerId];
-    if(!me) return;
-
-
-    let offsetX = canvas.width/2 - me.x;
-    let offsetY = canvas.height/2 - me.y;
-
-
-    for(let id in players){
-        let p = players[id];
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x + offsetX, p.y + offsetY, 15, 0, Math.PI*2);
-        ctx.fill();
-    }
-
-
-    bullets.forEach(b => {
-        ctx.fillStyle="yellow";
-        ctx.beginPath();
-        ctx.arc(b.x + offsetX, b.y + offsetY, 5, 0, Math.PI*2);
-        ctx.fill();
-    });
-}
-
-
 let keys = {};
 
 
@@ -162,8 +99,6 @@ document.addEventListener("keyup", e=>{
 
 
 setInterval(() => {
-
-
     let me = players[playerId];
     if(!me) return;
 
@@ -178,13 +113,9 @@ setInterval(() => {
 
 
     if(moved){
-        socket.emit("move", { x: me.x, y: me.y });
+        socket.emit("move",{x:me.x,y:me.y});
     }
-
-
 }, 1000/60);
-
-
 
 
 canvas.addEventListener("click", e=>{
@@ -204,6 +135,41 @@ canvas.addEventListener("click", e=>{
         dy:(dy/dist)*15
     });
 });
+
+
+function gameLoop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+
+    let me = players[playerId];
+    if(me){
+        let offsetX = canvas.width/2 - me.x;
+        let offsetY = canvas.height/2 - me.y;
+
+
+        for(let id in players){
+            let p = players[id];
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x + offsetX, p.y + offsetY, 15, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+
+        bullets.forEach(b=>{
+            ctx.fillStyle="yellow";
+            ctx.beginPath();
+            ctx.arc(b.x + offsetX, b.y + offsetY, 5, 0, Math.PI*2);
+            ctx.fill();
+        });
+    }
+
+
+    requestAnimationFrame(gameLoop);
+}
+
+
+requestAnimationFrame(gameLoop);
 </script>
 
 
